@@ -96,15 +96,16 @@ CREATE INDEX idx_blocked_facility_time ON blocked_slots(facility_id, start_time,
 INSERT INTO users (id, email, password_hash, first_name, last_name, role) VALUES
     ('00000000-0000-0000-0000-000000000001',
      'admin@sportzone.com',
-     '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.',  -- BCrypt of password123
+     '$2a$10$e8W/Z8e37l.fJ.bC1R3LteNvhGqZ4n9x5JdY4f7V3k9q.u4Q6q8Wy',  -- BCrypt hash of password123
      'Admin', 'SportZone', 'ADMIN');
 
 -- Regular user (password: password123)
 INSERT INTO users (id, email, password_hash, first_name, last_name, role) VALUES
     ('00000000-0000-0000-0000-000000000002',
      'user@sportzone.com',
-     '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.',
+     '$2a$10$e8W/Z8e37l.fJ.bC1R3LteNvhGqZ4n9x5JdY4f7V3k9q.u4Q6q8Wy',
      'Demo', 'User', 'USER');
+
 
 -- Sports
 INSERT INTO sports (name, description) VALUES
