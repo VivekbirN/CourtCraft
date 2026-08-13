@@ -1,59 +1,48 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export interface UserSummary {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: 'USER' | 'ADMIN';
-}
-
-interface ToastMessage {
-  id: string;
-  type: 'success' | 'error' | 'info';
-  text: string;
+export interface UserInfo {
+  id?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string; // USER | ADMIN
 }
 
 interface AppContextType {
   token: string | null;
-  user: UserSummary | null;
-  login: (token: string, user: UserSummary) => void;
+  user: UserInfo | null;
+  setToken: (token: string | null) => void;
+  setUser: (user: UserInfo | null) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  toasts: ToastMessage[];
-  showToast: (text: string, type?: 'success' | 'error' | 'info') => void;
-  removeToast: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [user, setUser] = useState<UserSummary | null>(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+  const [token, setTokenState] = useState<string | null>(localStorage.getItem('token'));
+  const [user, setUserState] = useState<UserInfo | null>(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
   });
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, text, type }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4000);
+  const setToken = (newToken: string | null) => {
+    setTokenState(newToken);
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+    } else {
+      localStorage.removeItem('token');
+    }
   };
 
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const login = (newToken: string, newUser: UserSummary) => {
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    showToast(`Welcome back, ${newUser.firstName}!`, 'success');
+  const setUser = (newUser: UserInfo | null) => {
+    setUserState(newUser);
+    if (newUser) {
+      localStorage.setItem('user', JSON.stringify(newUser));
+    } else {
+      localStorage.removeItem('user');
+    }
   };
 
   const logout = () => {
@@ -61,7 +50,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    showToast('Logged out successfully', 'info');
   };
 
   useEffect(() => {
@@ -76,13 +64,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         token,
         user,
-        login,
+        setToken,
+        setUser,
         logout,
         isAuthenticated: !!token,
         isAdmin: user?.role === 'ADMIN',
-        toasts,
-        showToast,
-        removeToast,
       }}
     >
       {children}

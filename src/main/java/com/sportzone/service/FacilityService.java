@@ -89,7 +89,12 @@ public class FacilityService {
                 .orElseThrow(() -> new ResourceNotFoundException("Facility not found with id: " + facilityId));
 
         String cacheKey = "availability:" + facilityId + ":" + date.toString();
-        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+        String cachedData = null;
+        try {
+            cachedData = redisTemplate.opsForValue().get(cacheKey);
+        } catch (Exception e) {
+            // Ignore Redis exception, fallback to DB query
+        }
 
         if (cachedData != null) {
             try {
@@ -136,7 +141,7 @@ public class FacilityService {
 
         try {
             redisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), Duration.ofSeconds(60));
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             // Ignore error writing cache
         }
 
@@ -144,11 +149,16 @@ public class FacilityService {
     }
 
     public void invalidateFacilityCache(Integer facilityId) {
-        Set<String> keys = redisTemplate.keys("availability:" + facilityId + ":*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        try {
+            Set<String> keys = redisTemplate.keys("availability:" + facilityId + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            // Ignore Redis connection errors
         }
     }
+
 
     private FacilityDto.FacilityResponse mapToResponse(Facility facility) {
         return FacilityDto.FacilityResponse.builder()

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import apiClient from '../api/apiClient';
-import { useApp } from '../context/AppContext';
-import { Dumbbell, Calendar, Clock, CheckCircle2, ArrowLeft, ShieldAlert, Loader2 } from 'lucide-react';
-
+import { apiClient } from '../api/apiClient';
+import Flatpickr from 'react-flatpickr';
+import { Dumbbell, ArrowLeft, Loader2, CheckCircle2, ShieldAlert, Calendar, Clock } from 'lucide-react';
 
 interface Facility {
   id: number;
@@ -16,12 +15,13 @@ interface Facility {
 export const BookSlot: React.FC = () => {
   const { facilityId } = useParams<{ facilityId: string }>();
   const navigate = useNavigate();
-  const { showToast } = useApp();
 
   const [facility, setFacility] = useState<Facility | null>(null);
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [durationText, setDurationText] = useState('0 hours');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,9 +29,9 @@ export const BookSlot: React.FC = () => {
     const fetchFacility = async () => {
       try {
         const res = await apiClient.get(`/v1/facilities/${facilityId}`);
-        setFacility(res.data.data);
+        setFacility(res.data?.data);
       } catch (err) {
-        setError('Failed to fetch facility details.');
+        setError('Failed to fetch facility specifications.');
       } finally {
         setLoading(false);
       }
@@ -39,23 +39,66 @@ export const BookSlot: React.FC = () => {
     if (facilityId) fetchFacility();
   }, [facilityId]);
 
+  useEffect(() => {
+    if (startDate && endDate) {
+      const diffMs = endDate.getTime() - startDate.getTime();
+      if (diffMs > 0) {
+        const hours = (diffMs / (1000 * 60 * 60)).toFixed(1);
+        setDurationText(`${hours} hours`);
+      } else {
+        setDurationText('Invalid window');
+      }
+    }
+  }, [startDate, endDate]);
+
+  const toLocalISOString = (date: Date) => {
+    const pad = (n: number) => (n < 10 ? '0' + n : n);
+    return (
+      date.getFullYear() +
+      '-' +
+      pad(date.getMonth() + 1) +
+      '-' +
+      pad(date.getDate()) +
+      'T' +
+      pad(date.getHours()) +
+      ':' +
+      pad(date.getMinutes()) +
+      ':00'
+    );
+  };
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(false);
+
+    if (!startDate || !endDate) {
+      setError('Please select both start time and end time.');
+      return;
+    }
+
+    const diffHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+
+    if (diffHours <= 0) {
+      setError('End time must be after start time.');
+      return;
+    }
+    if (diffHours > 3) {
+      setError('Booking duration cannot exceed 3 hours.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       await apiClient.post('/v1/bookings', {
         facilityId: Number(facilityId),
-        startTime,
-        endTime,
+        startTime: toLocalISOString(startDate),
+        endTime: toLocalISOString(endDate),
       });
-      showToast('Booking reserved successfully!', 'success');
-      navigate('/my-bookings');
+      setSuccess(true);
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to complete booking. Conflict or validation error.';
-      setError(msg);
-      showToast(msg, 'error');
+      setError(err.response?.data?.message || 'Failed to confirm booking.');
     } finally {
       setSubmitting(false);
     }
@@ -63,18 +106,18 @@ export const BookSlot: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mb-3" />
-        <span className="text-sm font-medium">Loading facility parameters...</span>
+      <div className="flex flex-col items-center justify-center py-24 text-[#b3b3b3]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1db954] mb-3" />
+        <span className="text-sm font-medium">Loading court specs...</span>
       </div>
     );
   }
 
   if (!facility) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-slate-400">Facility not found.</p>
-        <Link to="/facilities" className="text-emerald-400 text-sm hover:underline mt-2 inline-block">
+      <div className="py-12 text-center text-[#b3b3b3]">
+        <p>Facility not found.</p>
+        <Link to="/facilities" className="text-[#1db954] text-xs underline mt-2 inline-block">
           Return to facilities
         </Link>
       </div>
@@ -82,116 +125,124 @@ export const BookSlot: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 font-['Outfit',sans-serif]">
       {/* Back button */}
-      <Link
-        to="/facilities"
-        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to Facilities</span>
+      <Link to="/facilities" className="inline-flex items-center gap-2 text-xs font-semibold text-[#b3b3b3] hover:text-white transition">
+        <ArrowLeft className="w-4 h-4" /> Back to Facilities
       </Link>
 
-      {/* Facility Header Card */}
-      <div className="bg-[#0E1526] border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden">
+      {/* Header Info Card */}
+      <div className="spotify-card p-6">
         <div className="flex items-start justify-between">
           <div>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#1db954] uppercase tracking-wider">
               {facility.sportName}
             </span>
-            <h2 className="text-2xl font-extrabold text-white mt-2">{facility.name}</h2>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">{facility.description}</p>
+            <h2 className="text-2xl font-bold text-white mt-1">{facility.name}</h2>
+            <p className="text-xs text-[#b3b3b3] mt-1">{facility.description}</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <Dumbbell className="w-6 h-6 text-emerald-400" />
-          </div>
-        </div>
-
-        {/* Booking Rules Infobox */}
-        <div className="mt-6 p-3 bg-slate-900/80 rounded-xl border border-slate-800 grid grid-cols-3 gap-2 text-center text-xs">
-          <div>
-            <span className="text-slate-500 block text-[10px]">Max Duration</span>
-            <span className="font-bold text-slate-300">3 Hours</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[10px]">Advance Window</span>
-            <span className="font-bold text-slate-300">Up to 7 Days</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[10px]">Cancellation</span>
-            <span className="font-bold text-slate-300">&gt; 30 mins prior</span>
+          <div className="w-10 h-10 rounded-full bg-[#1db954]/10 text-[#1db954] flex items-center justify-center shrink-0">
+            <Dumbbell className="w-5 h-5" />
           </div>
         </div>
       </div>
 
-      {/* Booking Form Card */}
-      <div className="bg-[#0E1526] border border-slate-800/80 rounded-2xl p-6">
-        <h3 className="text-lg font-bold text-white mb-4">Select Reservation Slot</h3>
-
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Booking Rejected</p>
-              <p className="text-xs text-rose-300/80 mt-0.5">{error}</p>
-            </div>
+      {/* Success Confirmation Card */}
+      {success ? (
+        <div className="bg-emerald-950/40 border border-[#1db954]/50 rounded-2xl p-6 text-center space-y-4">
+          <CheckCircle2 className="w-12 h-12 text-[#1db954] mx-auto" />
+          <h3 className="text-xl font-bold text-white">Booking Confirmed!</h3>
+          <p className="text-xs text-[#b3b3b3]">Your slot has been locked in database. See you on the court!</p>
+          <div className="pt-2">
+            <button onClick={() => navigate('/my-bookings')} className="spotify-pill">
+              Go to My Bookings
+            </button>
           </div>
-        )}
+        </div>
+      ) : (
+        /* Booking Form Card */
+        <div className="spotify-card p-6">
+          <h3 className="text-base font-bold text-white mb-4">Reserve Time Slot</h3>
 
-        <form onSubmit={handleBooking} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                Start Time
-              </label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  type="datetime-local"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-emerald-500/60"
-                />
+          {error && (
+            <div className="mb-6 bg-red-950/30 border border-red-800/50 text-red-400 rounded-xl p-4 text-xs flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Booking Conflict</p>
+                <p className="mt-0.5 text-red-300">{error}</p>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleBooking} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#b3b3b3] uppercase tracking-wider mb-2">
+                  Start Time
+                </label>
+                <div className="relative flex items-center">
+                  <Flatpickr
+                    data-enable-time
+                    options={{
+                      dateFormat: 'd-m-Y H:i',
+                      minDate: 'today',
+                      time_24hr: true,
+                    }}
+                    value={startDate || ''}
+                    onChange={([date]) => setStartDate(date)}
+                    className="w-full bg-[#121212] border border-[#282828] rounded-xl pl-10 pr-4 py-3 text-white text-xs focus:outline-none focus:border-[#1db954] cursor-pointer"
+                    placeholder="Select Start Date & Time"
+                  />
+                  <Calendar className="w-4 h-4 text-[#b3b3b3] absolute left-3 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#b3b3b3] uppercase tracking-wider mb-2">
+                  End Time
+                </label>
+                <div className="relative flex items-center">
+                  <Flatpickr
+                    data-enable-time
+                    options={{
+                      dateFormat: 'd-m-Y H:i',
+                      minDate: 'today',
+                      time_24hr: true,
+                    }}
+                    value={endDate || ''}
+                    onChange={([date]) => setEndDate(date)}
+                    className="w-full bg-[#121212] border border-[#282828] rounded-xl pl-10 pr-4 py-3 text-white text-xs focus:outline-none focus:border-[#1db954] cursor-pointer"
+                    placeholder="Select End Date & Time"
+                  />
+                  <Clock className="w-4 h-4 text-[#b3b3b3] absolute left-3 pointer-events-none" />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                End Time
-              </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-                <input
-                  type="datetime-local"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-emerald-500/60"
-                />
-              </div>
+            {/* Calculated duration badge */}
+            <div className="p-3 bg-[#121212] rounded-xl border border-[#282828] flex items-center justify-between text-xs">
+              <span className="text-[#b3b3b3]">Calculated Duration:</span>
+              <span className="font-bold text-[#1db954]">{durationText}</span>
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm mt-4"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Acquiring Lock & Verifying...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm Reservation</span>
-              </>
-            )}
-          </button>
-        </form>
-      </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="spotify-pill w-full flex items-center justify-center gap-2 mt-4 text-sm"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>Confirm Booking</span>
+              )}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
+

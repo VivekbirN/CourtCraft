@@ -3,23 +3,24 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
 import { Facilities } from './pages/Facilities';
 import { BookSlot } from './pages/BookSlot';
 import { MyBookings } from './pages/MyBookings';
 import { AdminDashboard } from './pages/AdminDashboard';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({
+const RoleProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({
   children,
-  adminOnly = false,
+  allowedRoles,
 }) => {
-  const { isAuthenticated, isAdmin } = useApp();
+  const { isAuthenticated, user } = useApp();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/facilities" replace />;
+  if (allowedRoles && user?.role && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -32,25 +33,26 @@ const AppRoutes: React.FC = () => {
 
       <Route
         element={
-          <ProtectedRoute>
+          <RoleProtectedRoute allowedRoles={['USER', 'ADMIN']}>
             <DashboardLayout />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
         }
       >
+        <Route path="/" element={<Dashboard />} />
         <Route path="/facilities" element={<Facilities />} />
         <Route path="/book/:facilityId" element={<BookSlot />} />
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route
           path="/admin"
           element={
-            <ProtectedRoute adminOnly>
+            <RoleProtectedRoute allowedRoles={['ADMIN']}>
               <AdminDashboard />
-            </ProtectedRoute>
+            </RoleProtectedRoute>
           }
         />
       </Route>
 
-      <Route path="*" element={<Navigate to="/facilities" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

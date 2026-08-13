@@ -1,28 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import 'flatpickr/dist/flatpickr.min.css';
+@import 'flatpickr/dist/themes/dark.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
+  html {
+    background-color: #121212;
+    color: #ffffff;
+    color-scheme: dark;
+  }
   body {
-    @apply bg-[#090D16] text-slate-100 min-h-screen font-sans;
+    font-family: 'Outfit', sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+    color-scheme: dark;
+    @apply bg-[#121212] text-white transition-colors duration-200 antialiased;
   }
 }
 
-/* Custom sleek dark scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
-::-webkit-scrollbar-track {
-  background: #090D16;
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 9999px;
+
+
+.spotify-card {
+  @apply bg-[#181818] border border-[#282828] rounded-2xl transition-all duration-200 hover:bg-[#202020] hover:border-[#383838];
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+.spotify-pill {
+  @apply bg-[#1db954] hover:bg-[#1ed760] text-black font-bold px-6 py-2.5 rounded-full transition-all duration-200 shadow-lg shadow-[#1db954]/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
 }
+
+.spotify-pill-outline {
+  @apply border border-[#282828] hover:border-[#1db954] text-white hover:text-[#1db954] font-medium px-6 py-2.5 rounded-full transition-all duration-200;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #121212; }
+::-webkit-scrollbar-thumb { background: #282828; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #3e3e3e; }
